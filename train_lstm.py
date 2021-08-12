@@ -1,4 +1,3 @@
-from numpy.core.fromnumeric import transpose
 import tensorflow as tf
 import numpy as np
 import datetime
@@ -7,7 +6,7 @@ import os
 
 from utils import videoSummary, videoSummaryCross, applyCorrection, augmentSequence
 from samplers import SequenceSampler
-from models import BidirGRU
+from models import BidirLSTM
 
 def parse():
     parser = argparse.ArgumentParser()
@@ -43,7 +42,7 @@ val_ds = val_ds.prefetch(1000)
 val_ds = val_ds.batch(BATCH_SIZE)
 
 #encoder, gru, direct = GRU_RESNET50(20,256,256)
-gru = BidirGRU(seq_size=SEQ_SIZE)
+gru = BidirLSTM(seq_size=SEQ_SIZE)
 # Load models
 encoder = tf.keras.models.load_model('/home/gpu_user/antoine/WoodSeer/Xray_center_detection/models/20210802-080512/encoder_25')
 out = encoder(np.ones((1,256,256,1)))
@@ -53,10 +52,10 @@ encoder.summary()
 
 loss_object = tf.keras.losses.MeanSquaredError()
 gru_optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
-train_gru_loss_metric = tf.keras.metrics.Mean('train_gru_loss', dtype=tf.float32)
-val_gru_loss_metric = tf.keras.metrics.Mean('val_gru_loss', dtype=tf.float32)
-train_gru_error = tf.keras.metrics.Mean('train_gru_error', dtype=tf.float32)
-val_gru_error = tf.keras.metrics.Mean('val_gru_error', dtype=tf.float32)
+train_gru_loss_metric = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
+val_gru_loss_metric = tf.keras.metrics.Mean('val_loss', dtype=tf.float32)
+train_gru_error = tf.keras.metrics.Mean('train_error', dtype=tf.float32)
+val_gru_error = tf.keras.metrics.Mean('val_error', dtype=tf.float32)
 
 # Tf functions
 @tf.function
@@ -115,9 +114,9 @@ for epoch in range(EPOCHS):
     train_gru_loss_metric.reset_states()
     if (epoch % 10) == 0:
         with train_summary_writer.as_default():
-            videoSummary('input',np.array(x[:6]+0.5), step = step)
-            videoSummaryCross('truth',np.array((x[:6]+0.5)*255).astype(np.uint8), (y+0.5)*256, step = step)
-            videoSummaryCross('predictions_gru',np.array((x[:6]+0.5)*255).astype(np.uint8), (yg_+0.5)*256, step = step)
+            videoSummary('input_seq',np.array(x[:6]+0.5), step = step)
+            videoSummaryCross('truth_seq',np.array((x[:6]+0.5)*255).astype(np.uint8), (y+0.5)*256, step = step)
+            videoSummaryCross('predictions_seq',np.array((x[:6]+0.5)*255).astype(np.uint8), (yg_+0.5)*256, step = step)
         for x,y in val_ds:
             yg_ = val_step(encoder, gru, x, y)
         template = 'VALIDATION: Epoch {}, Step {}, loss {}, error {}'
@@ -130,9 +129,9 @@ for epoch in range(EPOCHS):
         with val_summary_writer.as_default():
             tf.summary.scalar('loss', val_gru_loss_metric.result(), step = step)
             tf.summary.scalar('error', val_gru_error.result(), step = step)
-            videoSummary('input',np.array(x[:6]+0.5), step = step)
-            videoSummaryCross('truth',np.array((x[:6]+0.5)*255).astype(np.uint8), (y+0.5)*256, step = step)
-            videoSummaryCross('predictions_gru',np.array((x[:6]+0.5)*255).astype(np.uint8), (yg_+0.5)*256, step = step)
+            videoSummary('input_seq',np.array(x[:6]+0.5), step = step)
+            videoSummaryCross('truth_seq',np.array((x[:6]+0.5)*255).astype(np.uint8), (y+0.5)*256, step = step)
+            videoSummaryCross('predictions_seq',np.array((x[:6]+0.5)*255).astype(np.uint8), (yg_+0.5)*256, step = step)
         val_gru_loss_metric.reset_states()
         val_gru_error.reset_states()
         gru.save(os.path.join(args.output_path,'models',current_time,'gru_'+str(epoch)))

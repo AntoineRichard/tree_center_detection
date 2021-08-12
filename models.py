@@ -2,98 +2,41 @@ from tensorflow.keras import Sequential, Model
 import tensorflow.keras.layers as tfkl
 import tensorflow as tf
 
-"""
-class MultiScaleConvolution(Model):
-    def __init__(self, d, kds=[1,3,6,9]):
-        super().__init__()
-        self.convs = [tfkl.Conv2D(d//4, (3,3), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001), dilation_rate=(kd,kd)) for kd in kds]
-        self.bns = [tfkl.BatchNormalization() for _ in kds]
-        self.conv_merge = tfkl.Conv2D(d, (3,3), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn_merge = tfkl.BatchNormalization()
+from model_utils import *
 
-    def call(self, x, training):
-        cv = []
-        for conv, bn in zip(self.convs,self.bns):
-            tmp = conv(x)
-            tmp = bn(tmp, training=training)
-            cv.append(tf.nn.relu(tmp))
-        out = tf.concat(cv,axis=-1)
-        out = self.conv_merge(out)
-        out = self.bn_merge(out)
-        out = tf.nn.relu(out)
-        return out
-"""
+class Transformer(tf.keras.Model):
+    def __init__(self, num_layers, d_model, num_heads, dff, 
+                    target_shape, pe_input, pe_target, rate=0.1):
+        super(Transformer, self).__init__()
+        self.encoder = Encoder(num_layers, d_model, num_heads, dff,
+                                pe_input, rate)
+        self.decoder = Decoder(num_layers, d_model, num_heads, dff,
+                           target_shape, pe_target, rate)
 
-class MultiScaleConvolution(Model):
-    def __init__(self, d, kds=[1,3,6,9]):
-        super().__init__()
-        self.convs = [tfkl.Conv2D(d//4, (3,3), padding='same', dilation_rate=(kd,kd)) for kd in kds]
-        #self.bns = [tfkl.BatchNormalization() for _ in kds]
-        self.conv_merge = tfkl.Conv2D(d, (3,3), padding='same')
-        #self.bn_merge = tfkl.BatchNormalization()
+        self.final_layer = tf.keras.layers.Dense(target_shape)
 
-    def call(self, x, training):
-        cv = []
-        for conv in self.convs:
-            tmp = conv(x)
-            #tmp = bn(tmp, training=training)
-            cv.append(tf.nn.relu(tmp))
-        out = tf.concat(cv,axis=-1)
-        out = self.conv_merge(out)
-        #out = self.bn_merge(out)
-        out = tf.nn.relu(out)
-        return out
+    def call(self, inp, tar, training, enc_padding_mask, 
+                look_ahead_mask, dec_padding_mask):
+        enc_output = self.encoder(inp, training, enc_padding_mask)  # (batch_size, inp_seq_len, d_model)
+        # dec_output.shape == (batch_size, tar_seq_len, d_model)
+        dec_output, attention_weights = self.decoder( tar, enc_output, training,
+                                                     look_ahead_mask, dec_padding_mask)
+        final_output = self.final_layer(dec_output)  # (batch_size, tar_seq_len, target_vocab_size)
+        return final_output, attention_weights
 
+class TransformerEncoder(tf.keras.Model):
+    def __init__(self, num_layers, d_model, num_heads, dff, 
+                    target_shape, pe_input, rate=0.1):
+        super(TransformerEncoder, self).__init__()
+        self.encoder = Encoder(num_layers, d_model, num_heads, dff,
+                                pe_input, rate)
+        self.final_layer = tf.keras.layers.Dense(target_shape)
 
-class ResidualBlock(Model):
-    def __init__(self, f1, f2):
-        super().__init__()
-        self.conv1 = tfkl.Conv2D(f1, (1,1), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn1 = tfkl.BatchNormalization()
-        self.conv2 = tfkl.Conv2D(f1, (3,3), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn2 = tfkl.BatchNormalization()
-        self.conv3= tfkl.Conv2D(f2, (1,1), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn3 = tfkl.BatchNormalization()
-
-    def call(self, x, training):
-        out = self.conv1(x)
-        out = self.bn1(out, training=training)
-        out = tf.nn.leaky_relu(out)
-        out = self.conv2(out)
-        out = self.bn2(out, training=training)
-        out = tf.nn.leaky_relu(out)
-        out = self.conv3(out)
-        out = self.bn3(out, training=training)
-        out += x
-        out = tf.nn.leaky_relu(out)
-        return out
-
-class ResidualBlockDown(Model):
-    def __init__(self, f1, f2, stride):
-        super().__init__()
-        self.conv1 = tfkl.Conv2D(f1, (1,1), (stride,stride), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn1 = tfkl.BatchNormalization()
-        self.conv2 = tfkl.Conv2D(f1, (3,3), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn2 = tfkl.BatchNormalization()
-        self.conv3= tfkl.Conv2D(f2, (1,1), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn3 = tfkl.BatchNormalization()
-        self.conv_skip = tfkl.Conv2D(f2, (1,1), (stride, stride), padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self.bn_skip = tfkl.BatchNormalization()
-
-    def call(self, x, training):
-        out = self.conv1(x)
-        out = self.bn1(out, training=training)
-        out = tf.nn.leaky_relu(out)
-        out = self.conv2(out)
-        out = self.bn2(out, training=training)
-        out = tf.nn.leaky_relu(out)
-        out = self.conv3(out)
-        out = self.bn3(out, training=training)
-        skip = self.conv_skip(x)
-        skip = self.bn_skip(skip)
-        out += skip
-        out = tf.nn.leaky_relu(out)
-        return out
+    def call(self, inp, training, enc_padding_mask):
+        enc_output = self.encoder(inp, training, enc_padding_mask)  # (batch_size, inp_seq_len, d_model)
+        # dec_output.shape == (batch_size, tar_seq_len, d_model)
+        final_output = self.final_layer(enc_output)  # (batch_size, tar_seq_len, target_vocab_size)
+        return final_output
 
 class ResNet50(Model):
     def __init__(self, depth):
@@ -474,6 +417,18 @@ def BidirGRU(seq_size=20, input_size=256, output=2, neurons=256):
     gru.add(tfkl.TimeDistributed(tfkl.Dense(output)))
     return gru
 
+def BidirLSTM(seq_size=20, input_size=256, output=2, neurons=256):
+    lstm = Sequential()
+    lstm.add(tfkl.TimeDistributed(tfkl.Dense(neurons, activation='relu'), input_shape=(seq_size, input_size)))
+    forward_layer_1 = tfkl.LSTM(neurons, return_sequences=True)
+    backward_layer_1 = tfkl.LSTM(neurons, return_sequences=True, go_backwards=True)
+    lstm.add(tfkl.Bidirectional(forward_layer_1, backward_layer=backward_layer_1))
+    lstm.add(tfkl.TimeDistributed(tfkl.Dense(neurons, activation='relu')))
+    lstm.add(tfkl.TimeDistributed(tfkl.Dropout(rate=0.1)))
+    lstm.add(tfkl.TimeDistributed(tfkl.Dense(neurons//2, activation='relu')))
+    lstm.add(tfkl.TimeDistributed(tfkl.Dense(output)))
+    return lstm
+
 def ResNet50_with_decoder(height, width, output=2, depth=2048):
     encoder = ResNet50(depth)
     model2 = Sequential()
@@ -482,25 +437,6 @@ def ResNet50_with_decoder(height, width, output=2, depth=2048):
     model2.add(tfkl.Dense(256, activation='relu'))
     model2.add(tfkl.Dense(output))
     return encoder, model2
-
-def GRU_VGG16(seq_size, height, width, output=2, depth=512):
-    encoder = Sequential()
-    encoder.add(tfkl.TimeDistributed(VGG16(depth), input_shape=(seq_size, height, width, 1)))
-    model1 = Sequential()
-    model1.add(tfkl.TimeDistributed(tfkl.Dense(128, activation='relu'), input_shape=(seq_size, depth//4)))
-    forward_layer_1 = tfkl.GRU(depth//4, return_sequences=True)
-    backward_layer_1 = tfkl.GRU(depth//4, return_sequences=True, go_backwards=True)
-    model1.add(tfkl.Bidirectional(forward_layer_1, backward_layer=backward_layer_1))
-    model1.add(tfkl.TimeDistributed(tfkl.Dense(128, activation='relu')))
-    model1.add(tfkl.TimeDistributed(tfkl.Dropout(rate=0.1)))
-    model1.add(tfkl.TimeDistributed(tfkl.Dense(128, activation='relu')))
-    model1.add(tfkl.TimeDistributed(tfkl.Dense(output)))
-    model2 = Sequential()
-    model2.add(tfkl.TimeDistributed(tfkl.Dense(128, activation='relu'), input_shape=(seq_size, depth//4)))
-    model2.add(tfkl.TimeDistributed(tfkl.Dropout(rate=0.1)))
-    model2.add(tfkl.TimeDistributed(tfkl.Dense(128, activation='relu')))
-    model2.add(tfkl.TimeDistributed(tfkl.Dense(output)))
-    return encoder, model1, model2
 
 def VGG16_with_decoder(height, width, output=2, depth=1024):
     encoder = VGG16Drop(depth)

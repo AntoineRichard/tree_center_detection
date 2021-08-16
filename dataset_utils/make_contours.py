@@ -1,4 +1,4 @@
-from posix import listdir
+from multiprocessing import Pool
 import numpy as np
 import argparse
 import pickle
@@ -101,5 +101,6 @@ species = os.listdir(args.xray_path)
 species_path = [os.path.join(args.xray_path,specie) for specie in species]
 cnts_save_path = [os.path.join(args.save_path,'contours',specie) for specie in species]
 imgs_save_path = [os.path.join(args.save_path,'contours_image',specie) for specie in species]
-for specie_path, img_save_path, cnt_save_path in zip(species_path, imgs_save_path, cnts_save_path):
-    process_specie(specie_path, img_save_path, cnt_save_path)
+
+pool = Pool(12)
+pool.starmap(process_specie, (zip(species_path, imgs_save_path, cnts_save_path)))

@@ -86,6 +86,14 @@ def dump_pickle_file(data, path):
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def process_specie(data_path, img_save_path, cnt_save_path):
+    """! Detects the contours of all tree species using a standard computer vision algorithm
+    @type data_path: str
+    @param data_path: the path to the images to be processed
+    @type img_save_path: str
+    @param img_save_path: the path to where the images will be saved (for human verification)
+    @type cnt_save_path: str
+    @param cnt_save_path: the path to where the contours will be saved
+    """
     tree_ids = os.listdir(data_path)
     for tree_id in tree_ids:
         tree_path = os.path.join(data_path, tree_id)
@@ -96,11 +104,13 @@ def process_specie(data_path, img_save_path, cnt_save_path):
         contours = process_tree(tree_path, img_path)
         dump_pickle_file(contours, os.path.join(cnt_path,tree_id+'.pkl'))
 
-args = parse()
-species = os.listdir(args.xray_path)
-species_path = [os.path.join(args.xray_path,specie) for specie in species]
-cnts_save_path = [os.path.join(args.save_path,'contours',specie) for specie in species]
-imgs_save_path = [os.path.join(args.save_path,'contours_image',specie) for specie in species]
+if __name__ == "__main__":
+    args = parse()
+    species = os.listdir(args.xray_path)
+    species_path = [os.path.join(args.xray_path,specie) for specie in species]
+    cnts_save_path = [os.path.join(args.save_path,'contours',specie) for specie in species]
+    imgs_save_path = [os.path.join(args.save_path,'contours_image',specie) for specie in species]
 
-pool = Pool(12)
-pool.starmap(process_specie, (zip(species_path, imgs_save_path, cnts_save_path)))
+    pool = Pool(12)
+    # Threaded processing of tree species
+    pool.starmap(process_specie, (zip(species_path, imgs_save_path, cnts_save_path)))

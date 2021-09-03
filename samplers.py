@@ -144,7 +144,7 @@ class CompressedPNGSequenceSampler:
             end = start + self.seq_length
             for index in range(start, end, 1):
                 #print(self.h5[self.dataset[key]["tree_id"]][str(index-start)])
-                print(index)
+                #print(index)
                 raw_img = cv2.imdecode(self.h5[self.dataset[key]["tree_id"]][str(index)][:], cv2.IMREAD_UNCHANGED)
                 raw_img = cv2.resize(raw_img, (self.height, self.width))
                 images.append(raw_img)

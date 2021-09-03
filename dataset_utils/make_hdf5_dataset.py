@@ -160,5 +160,5 @@ class H5Converter:
         return encoded
 
 if __name__ == "__main__":
-    H5C = H5Converter('/home/gpu_user/antoine/WoodSeer/XRays','/home/gpu_user/antoine/WoodSeer/XRays/trees_to_use.txt', '/home/gpu_user/antoine/WoodSeer/test.hdf5')
+    H5C = H5Converter('/home/gpu_user/antoine/WoodSeer/XRays','/home/gpu_user/antoine/WoodSeer/XRays/trees_to_use.txt', '/home/gpu_user/antoine/WoodSeer/XRays.hdf5')
     H5C.build()

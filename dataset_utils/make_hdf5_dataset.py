@@ -11,6 +11,23 @@ import os
 from skimage import exposure
 from tensorflow._api.v2 import data
 
+def removeBackground(img, bg_clr_select=20):
+    """!Removes the darker background around the Xray and fills it by the value of the noise within the xray.
+    @type img: np.array
+    @param img: an xray image
+    @type bg_clr_select: int
+    @param bg_clr_select: the amount of pixels to select the background from
+
+    @rtype: np.array
+    @return: the image without its black background
+    """
+    background_color = np.mean(img[0:bg_clr_select,0:bg_clr_select])
+    mask = np.zeros_like(img)
+    mask = cv2.circle(mask, (256,256), 245, 1, 10)
+    xray_noise_value = np.mean(img[mask==1])
+    img[img<=background_color] = xray_noise_value
+    return img
+
 def histogramCut(img, shift = 0., cap = 1.):
     """! Restricts the histogram to a range between 'shift' and 'cap'.
 
@@ -48,13 +65,13 @@ def normalize(img):
     return img
 
 def equalize(img):
-    """
-    Peforms adaptative histogram normalization on a flatten sequence of images
+    """! Peforms adaptative histogram normalization on a flatten sequence of images
 
-    INPUT
-    img: a 2D array [?, ?]
-    OUTPUT
-    ada: a 2D array [?, ?]
+    @type img: np.array
+    @param img: a 2D array [?, ?]
+    
+    @type ada: np.array
+    @param ada: a 2D array [?, ?]
     """
     ada = normalize(img)
     ada = ski.exposure.equalize_adapthist(ada, clip_limit=0.02)
@@ -132,6 +149,7 @@ class H5Converter:
         buff = deque()
         for image_name in images:
             img = cv2.imread(os.path.join(folder, image_name), cv2.IMREAD_UNCHANGED)
+            img = removeBackground(img)
             buff.append(img)
             if len(buff) >= 30:
                 img_seq = np.array(buff)
@@ -160,5 +178,5 @@ class H5Converter:
         return encoded
 
 if __name__ == "__main__":
-    H5C = H5Converter('/home/gpu_user/antoine/WoodSeer/XRays','/home/gpu_user/antoine/WoodSeer/XRays/trees_to_use.txt', '/home/gpu_user/antoine/WoodSeer/XRays.hdf5')
+    H5C = H5Converter('/home/gpu_user/antoine/WoodSeer/XRays','/home/gpu_user/antoine/WoodSeer/XRays/trees_to_use.txt', '/home/gpu_user/antoine/WoodSeer/XRays_v2.hdf5')
     H5C.build()

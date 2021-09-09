@@ -48,6 +48,53 @@ class SimpleSampler:
         position = self.dataset[key]['center']
         return np.array(position)/512 - 0.5, raw_img/1.0
 
+class CompressedPNGSampler:
+    def __init__(self, hdf5_path, pkl_path, height=256, width=256):
+        # load args
+        self.height = height
+        self.width = width
+
+        # Load-Dataset
+        with open(pkl_path, 'rb') as handle:
+            self.dataset = pickle.load(handle)
+        d = {}
+        for key in self.dataset.keys():
+            for idx in self.dataset[key]['data'].keys():
+                d[str(key)+str(idx)] = {}
+                d[str(key)+str(idx)]["tree_id"] = self.dataset[key]["tree_id"]
+                d[str(key)+str(idx)]["idx"] = idx
+                d[str(key)+str(idx)]["center"] = self.dataset[key]['centers'][idx]
+        self.dataset = d
+        self.h5 = h5py.File(hdf5_path)    
+        self.num_samples = len(self.dataset.keys())
+    
+    def getDataset(self):
+        generator = self._generator
+        return tf.data.Dataset.from_generator(generator,
+                              args=[],
+                              output_types=(tf.float32, tf.float32),
+                              output_shapes = (tf.TensorShape([self.seq_length, self.height, self.width, 1]),tf.TensorShape([self.seq_length, 2])))
+    
+    def _generator(self):
+        # Generator (to act as dataset)
+        keys = list(self.dataset.keys())
+        random.shuffle(keys)
+
+        for key in keys:
+            pose, img = self._getImg(key)
+            img = np.expand_dims(img,-1)
+            yield (img, pose)
+    
+    def _getImg(self, key):
+        #raw_img = cv2.imread(self.dataset[key]['img_path'],cv2.IMREAD_UNCHANGED)
+        #raw_img = cv2.resize(raw_img, (self.height, self.width))
+        raw_img = cv2.imdecode(self.h5[self.dataset[key]["tree_id"]][str(self.dataset[key]["idx"])][:], cv2.IMREAD_UNCHANGED)
+        raw_img = cv2.resize(raw_img, (self.height, self.width))
+        position = self.dataset[key]['center']
+        return np.array(position)/512 - 0.5, raw_img/1.0
+    
+
+
 class SequenceSampler:
     def __init__(self, path, seq_length=20, height=256, width=256):
         # load args
@@ -143,8 +190,6 @@ class CompressedPNGSequenceSampler:
             start = self.dataset[key]['start'] + offset
             end = start + self.seq_length
             for index in range(start, end, 1):
-                #print(self.h5[self.dataset[key]["tree_id"]][str(index-start)])
-                #print(index)
                 raw_img = cv2.imdecode(self.h5[self.dataset[key]["tree_id"]][str(index)][:], cv2.IMREAD_UNCHANGED)
                 raw_img = cv2.resize(raw_img, (self.height, self.width))
                 images.append(raw_img)

@@ -73,7 +73,7 @@ def equalize(img):
     ada = normalize(ada) - 0.5
     return ada
 
-def remove_image_block(x,y):
+def randomLowerImageMasking(x,y):
     """! Randomly removes the lower part of an image or a sequence of images
 
     @type x: tf.tensor
@@ -116,7 +116,7 @@ def rotate(x, y):
     @return: a tuple of tensors of shape([Height, Width, Sequence_size], [Sequence_size, 2])
     """
     y = np.array(y)
-    theta = np.random.rand()*2*np.pi
+    theta = np.random.rand()*3*np.pi/4
     c, s = np.cos(theta), np.sin(theta)
     R = np.array(((c, -s), (s, c)))
     y = np.matmul(R,y.T).T
@@ -172,15 +172,15 @@ def augmentImage(x,y):
     y: a tensor of shape [2]
     """
     y = tf.expand_dims(y,0)
-    x,y = tf.py_function(remove_image_block, [x,y], (tf.float32, tf.float32))
+    x,y = tf.py_function(randomLowerImageMasking, [x,y], (tf.float32, tf.float32))
     x,y = tf.py_function(rotate, [x,y], (tf.float32, tf.float32))
-    x,y = tf.py_function(remove_image_block, [x,y], (tf.float32, tf.float32))
+    x,y = tf.py_function(randomLowerImageMasking, [x,y], (tf.float32, tf.float32))
     x,y = tf.py_function(rotate, [x,y], (tf.float32, tf.float32))
     x,y = tf.py_function(shift, [x,y], (tf.float32, tf.float32)) # replace by tf.roll ? More like a smart concat
     x = randomBrightnessContrast(x)
     x = gaussianNoise(x)
     x = normalizeTF(x)
-    x = tf.py_function(remove_image_block, [x], (tf.float32, tf.float32))
+    x = tf.py_function(randomRectMasking, [x], (tf.float32, tf.float32))
     #x = tf.expand_dims(x,-1)
     y = tf.squeeze(y)
     return x,y
@@ -275,7 +275,7 @@ def randomKill(x, max_kills=4, kill_ratio=0.2):
     """
     return x
 
-def randomBlock(x, max_block_size=32, max_boxes=3):
+def randomRectMasking(x, max_block_size=32, max_boxes=3):
     """! Creates blocks of random positions, values, and sizes in images.
     @type x: tf.tensor
     @param x: a tensor of shape [Height, Width, Sequence_size]

@@ -18,7 +18,7 @@ class SimpleSampler:
 
         d = {}
         for key in self.dataset.keys():
-            for idx in self.dataset[key]['data'].keys():
+            for idx in self.dataset[key]['index'].keys():
                 d[str(key)+str(idx)] = self.dataset[key]['data'][idx]
         self.dataset = d
 

@@ -235,7 +235,7 @@ def gaussianNoise(x, mean=0.0, max_sigma=0.005**0.5):
     @return: a tensor of shape [Height, Width, Sequence_size]
     """
     sigma = tf.random.uniform([1])*max_sigma
-    gauss = tf.random.normal(x.shape, mean, sigma)
+    gauss = tf.random.normal((256,256,1), mean, sigma)
     x = x + gauss
     return x
 

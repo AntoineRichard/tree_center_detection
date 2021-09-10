@@ -18,7 +18,7 @@ class SimpleSampler:
 
         d = {}
         for key in self.dataset.keys():
-            for idx in self.dataset[key]['index'].keys():
+            for idx in self.dataset[key]['data'].keys():
                 d[str(key)+str(idx)] = self.dataset[key]['data'][idx]
         self.dataset = d
 
@@ -59,7 +59,7 @@ class CompressedPNGSampler:
             self.dataset = pickle.load(handle)
         d = {}
         for key in self.dataset.keys():
-            for idx in self.dataset[key]['data'].keys():
+            for idx in self.dataset[key]['centers'].keys():
                 d[str(key)+str(idx)] = {}
                 d[str(key)+str(idx)]["tree_id"] = self.dataset[key]["tree_id"]
                 d[str(key)+str(idx)]["idx"] = idx

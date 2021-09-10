@@ -293,8 +293,8 @@ def randomRectMasking(x, max_block_size=32, max_boxes=3):
         boxes = int(np.random.rand()*max_boxes)
         for _ in range(boxes):
             xyhw = np.random.rand(4)
-            xy = int(xyhw[0:2]*256)
-            hw = int(xyhw[2:]*max_block_size)
+            xy = (xyhw[0:2]*256).astype(int)
+            hw = (xyhw[2:]*max_block_size).astype(int)
             x[xy[0]+hw[0]:xy[0]+hw[0],xy[1]+hw[1]:xy[1]+hw[1],i] = np.random.rand() - 0.5
     return x
 

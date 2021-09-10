@@ -39,8 +39,8 @@ def normalizeTF(img):
     @rtype: tf.tensor
     @return: an ND tensor [?, .., ?]
     """
-    img = img - tf.math.minimum(img)
-    img = img / tf.math.maximum(img)
+    img = img - tf.reduce_min(img)
+    img = img / tf.reduce_max(img)
     return img
 
 def normalize(img):

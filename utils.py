@@ -287,6 +287,7 @@ def randomRectMasking(x, max_block_size=32, max_boxes=3):
     @rtype: tf.tensor
     @return: a tensor of shape [Height, Width, Sequence_size]
     """
+    x = np.array(x)
     h, w, s = x.shape
     for i in range(s):
         boxes = int(np.random.rand()*max_boxes)

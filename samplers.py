@@ -48,6 +48,7 @@ class SimpleSampler:
         position = self.dataset[key]['center']
         return np.array(position)/512 - 0.5, raw_img/1.0
 
+
 class CompressedPNGSampler:
     def __init__(self, hdf5_path, pkl_path, height=256, width=256):
         # load args
@@ -92,9 +93,7 @@ class CompressedPNGSampler:
         raw_img = cv2.imdecode(self.h5[self.dataset[key]["tree_id"]][str(self.dataset[key]["idx"])][:], cv2.IMREAD_UNCHANGED)
         raw_img = cv2.resize(raw_img, (self.height, self.width))
         position = self.dataset[key]['center']
-        return np.array(position)/512 - 0.5, raw_img/1.0
-    
-
+        return np.array(position)/512 - 0.5, raw_img/65535.0 - 0.5
 
 class SequenceSampler:
     def __init__(self, path, seq_length=20, height=256, width=256):

@@ -131,8 +131,8 @@ for epoch in range(EPOCHS):
             tf.summary.scalar('loss', val_loss_metric.result(), step = step)
             tf.summary.scalar('error', val_error.result(), step = step)
             videoSummary('input_seq',np.array(x[:6]+0.5), step = step)
-            videoSummaryCross('truth_seq',np.array((x[:6]+0.5)*255).astype(np.uint8), (y+0.5)*256, step = step)
-            videoSummaryCross('predictions_seq',np.array((x[:6]+0.5)*255).astype(np.uint8), (yg_+0.5)*256, step = step)
+            videoSummaryCross('truth_seq',np.array((x[:6]+0.5)*254).astype(np.uint8), (y+0.5)*256, step = step)
+            videoSummaryCross('predictions_seq',np.array((x[:6]+0.5)*254).astype(np.uint8), (yg_+0.5)*256, step = step)
         val_loss_metric.reset_states()
         #transformer.save(os.path.join(args.output_path,'models',current_time,'transformer_'+str(epoch)))
 

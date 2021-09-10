@@ -41,7 +41,7 @@ def normalizeTF(img):
     """
     img = img - tf.reduce_min(img)
     img = img / tf.reduce_max(img)
-    return img
+    return img - 0.5
 
 def normalize(img):
     """! Normalizes an image
@@ -84,24 +84,13 @@ def randomLowerImageMasking(x,y):
     @rtype: tuple
     @return: a tuple of tensors of shape([Height, Width, Sequence_size], [Sequence_size, 2])
     """
-    # 0 no mask, 1 mask from lower
     mask_height = int(np.random.rand()*2)
-    #mask_width = int(np.random.rand()*3)
     min_pixels = 10
     max_pixels = 30
     x = np.array(x)
     if mask_height == 1:
         delta = int(min_pixels + np.random.rand()*(max_pixels - min_pixels))
         x[:,:int((y[0,0] + 0.5)*256 - delta)] = -0.5
-    #elif mask_height == 2:
-    #    delta = int(min_pixels + np.random.rand()*(max_pixels - min_pixels))
-    #    x[:,int((y[0,0] + 0.5)*256 + delta):] = -0.5
-    #if mask_width == 1:
-    #    delta = int(min_pixels + np.random.rand()*(max_pixels - min_pixels))
-    #    x[:int((y[0,1] + 0.5)*256 - delta),:] = -0.5
-    #elif mask_width == 2:
-    #    delta = int(min_pixels + np.random.rand()*(max_pixels - min_pixels))
-    #    x[int((y[0,1] + 0.5)*256 + delta):,:] = -0.5
     return x, y
 
 def rotate(x, y):
@@ -180,9 +169,11 @@ def augmentImage(x,y):
     x = randomBrightnessContrast(x)
     x = gaussianNoise(x)
     x = normalizeTF(x)
-    x = tf.py_function(randomRectMasking, [x], (tf.float32, tf.float32))
+    x,y = tf.py_function(randomRectMasking, [x,y], (tf.float32, tf.float32))
+    #print(x)
     #x = tf.expand_dims(x,-1)
     y = tf.squeeze(y)
+    #tf.print(x.shape,y.shape)
     return x,y
 
 def applyCorrection(x):
@@ -275,7 +266,7 @@ def randomKill(x, max_kills=4, kill_ratio=0.2):
     """
     return x
 
-def randomRectMasking(x, max_block_size=32, max_boxes=3):
+def randomRectMasking(x, y, min_block_size=16, max_random_size=32, max_boxes=3):
     """! Creates blocks of random positions, values, and sizes in images.
     @type x: tf.tensor
     @param x: a tensor of shape [Height, Width, Sequence_size]
@@ -289,14 +280,18 @@ def randomRectMasking(x, max_block_size=32, max_boxes=3):
     """
     x = np.array(x)
     h, w, s = x.shape
+    #tf.print(" == new == ")
     for i in range(s):
         boxes = int(np.random.rand()*max_boxes)
         for _ in range(boxes):
             xyhw = np.random.rand(4)
             xy = (xyhw[0:2]*256).astype(int)
-            hw = (xyhw[2:]*max_block_size).astype(int)
-            x[xy[0]+hw[0]:xy[0]+hw[0],xy[1]+hw[1]:xy[1]+hw[1],i] = np.random.rand() - 0.5
-    return x
+            hw = min_block_size + (xyhw[2:]*max_random_size).astype(int)
+            #tf.print(str(xy[0]))
+            #tf.print(hw)
+            x[xy[0]:xy[0]+hw[0],xy[1]:xy[1]+hw[1],i] =  - 0.5
+    #tf.print(x.shape)
+    return x,y
 
     
 

@@ -67,13 +67,14 @@ class CompressedPNGSampler:
         self.dataset = d
         self.h5 = h5py.File(hdf5_path)    
         self.num_samples = len(self.dataset.keys())
+        print(self.num_samples)
     
     def getDataset(self):
         generator = self._generator
         return tf.data.Dataset.from_generator(generator,
                               args=[],
                               output_types=(tf.float32, tf.float32),
-                              output_shapes = (tf.TensorShape([self.seq_length, self.height, self.width, 1]),tf.TensorShape([self.seq_length, 2])))
+                              output_shapes = (tf.TensorShape([self.height, self.width, 1]),tf.TensorShape([2])))
     
     def _generator(self):
         # Generator (to act as dataset)

@@ -5,6 +5,8 @@ import pickle
 import h5py
 import cv2
 
+from utils import OuterRingRemover
+
 class SimpleSampler:
     def __init__(self, path, height=256, width=256, seq_length=20):
         # load args
@@ -48,7 +50,6 @@ class SimpleSampler:
         position = self.dataset[key]['center']
         return np.array(position)/512 - 0.5, raw_img/1.0
 
-
 class CompressedPNGSampler:
     def __init__(self, hdf5_path, pkl_path, height=256, width=256):
         # load args
@@ -68,7 +69,6 @@ class CompressedPNGSampler:
         self.dataset = d
         self.h5 = h5py.File(hdf5_path)    
         self.num_samples = len(self.dataset.keys())
-        print(self.num_samples)
     
     def getDataset(self):
         generator = self._generator
@@ -88,12 +88,27 @@ class CompressedPNGSampler:
             yield (img, pose)
     
     def _getImg(self, key):
-        #raw_img = cv2.imread(self.dataset[key]['img_path'],cv2.IMREAD_UNCHANGED)
-        #raw_img = cv2.resize(raw_img, (self.height, self.width))
         raw_img = cv2.imdecode(self.h5[self.dataset[key]["tree_id"]][str(self.dataset[key]["idx"])][:], cv2.IMREAD_UNCHANGED)
         raw_img = cv2.resize(raw_img, (self.height, self.width))
         position = self.dataset[key]['center']
-        return np.array(position)/512 - 0.5, raw_img/65535.0 - 0.5
+        return np.array(position)/512 - 0.5, raw_img/1.0
+
+class CompressedPNGSamplerWithAug(CompressedPNGSampler):
+    def __init__(self, hdf5_path, pkl_path, height=256, width=256):
+        super().__init__(hdf5_path, pkl_path, height=256, width=256)
+        self.OOR = OuterRingRemover()
+        self.OOR.makeMask()
+    
+    def _getImg(self, key):
+        raw_img = cv2.imdecode(self.h5[self.dataset[key]["tree_id"]][str(self.dataset[key]["idx"])][:], cv2.IMREAD_UNCHANGED)
+        raw_img = cv2.resize(raw_img, (self.height, self.width))
+        if np.random.rand() > 0.5:
+            raw_img = self.OOR.applyRandomMask(raw_img)
+
+        position = self.dataset[key]['center']
+        return np.array(position)/512 - 0.5, raw_img/1.0
+    
+
 
 class SequenceSampler:
     def __init__(self, path, seq_length=20, height=256, width=256):

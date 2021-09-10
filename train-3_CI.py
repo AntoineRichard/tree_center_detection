@@ -6,7 +6,7 @@ import argparse
 import os 
 
 from utils import imageSummaryCross, applyCorrectionImage, augmentImage
-from samplers import CompressedPNGSampler
+from samplers import CompressedPNGSampler, CompressedPNGSamplerWithAug
 from models import VGG16_with_decoder, ResNet50_with_decoder, VGG16MS_with_decoder
 
 def parse():
@@ -24,22 +24,16 @@ EPOCHS = 100
 BATCH_SIZE = 32
 
 # LOAD Datasets
-TRN_DS = CompressedPNGSampler(args.hdf5, args.train_labels)
-VAL_DS = CompressedPNGSampler(args.hdf5, args.train_labels)
-#TRN_DS = SimpleSampler(args.train_path)
-#VAL_DS = SimpleSampler(args.val_path)
+TRN_DS = CompressedPNGSamplerWithAug(args.hdf5, args.train_labels)
+VAL_DS = CompressedPNGSamplerWithAug(args.hdf5, args.val_labels)
 
 train_ds = TRN_DS.getDataset()
-#train_ds = train_ds.map(lambda x, y: (applyCorrectionImage(x), y), num_parallel_calls=20)
-#train_ds = train_ds.cache('train_cache')
 train_ds = train_ds.map(lambda x, y: augmentImage(x, y), num_parallel_calls=10)
 train_ds = train_ds.prefetch(1000)
 train_ds = train_ds.shuffle(1000)
 train_ds = train_ds.batch(BATCH_SIZE)
 
 val_ds = VAL_DS.getDataset()
-#val_ds = val_ds.cache('val_cache')
-#val_ds = val_ds.map(lambda x, y: (applyCorrectionImage(x), y), num_parallel_calls=20)
 val_ds = val_ds.map(lambda x, y: augmentImage(x, y), num_parallel_calls=10)
 val_ds = val_ds.prefetch(1000)
 val_ds = val_ds.batch(BATCH_SIZE)

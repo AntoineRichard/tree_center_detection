@@ -67,7 +67,7 @@ class CompressedPNGSampler:
                 d[str(key)+str(idx)]["idx"] = idx
                 d[str(key)+str(idx)]["center"] = self.dataset[key]['centers'][idx]
         self.dataset = d
-        self.h5 = h5py.File(hdf5_path)    
+        self.h5 = h5py.File(hdf5_path, 'r')    
         self.num_samples = len(self.dataset.keys())
     
     def getDataset(self):
@@ -102,13 +102,10 @@ class CompressedPNGSamplerWithAug(CompressedPNGSampler):
     def _getImg(self, key):
         raw_img = cv2.imdecode(self.h5[self.dataset[key]["tree_id"]][str(self.dataset[key]["idx"])][:], cv2.IMREAD_UNCHANGED)
         raw_img = cv2.resize(raw_img, (self.height, self.width))
-        if np.random.rand() > 0.5:
-            raw_img = self.OOR.applyRandomMask(raw_img)
-
         position = self.dataset[key]['center']
-        return np.array(position)/512 - 0.5, raw_img/1.0
-    
-
+        if np.random.rand() > 0.5:
+            raw_img = self.OOR.applyRandomMask(raw_img, position)
+        return np.array(position)/512 - 0.5, raw_img/65535.0 - 0.5
 
 class SequenceSampler:
     def __init__(self, path, seq_length=20, height=256, width=256):

@@ -51,7 +51,7 @@ class MRINoiseGenerator:
         return x
 
 class OuterRingRemover:
-    def __init__(self, min_radius=45, max_radius=120, im_size=256):
+    def __init__(self, min_radius=50, max_radius=120, im_size=256):
         self.min_radius = min_radius
         self.max_radius = max_radius
         self.im_size = im_size
@@ -59,18 +59,22 @@ class OuterRingRemover:
     def makeMask(self):
         self.masks = []
         for i in range(self.min_radius, self.max_radius, 2):
-            m = np.zeros((self.im_size, self.im_size), dtype=np.int16)
+            m = np.zeros((self.im_size, self.im_size), dtype=np.uint16)
             self.masks.append(cv2.circle(m,(self.im_size//2,self.im_size//2),i,0xFFFF,thickness=-1))
+        for mask in self.masks:
+            if np.sum(mask) == 0:
+                exit(0)
+          
     
     def applyRandomMask(self, x, y, eps=30):
         # Add noise to prevent the network from finding the center using the mask
-        y0 = y[0] - self.im_size//2 + int(np.random.rand()*eps - eps/2)
-        y1 = y[1] - self.im_size//2 + int(np.random.rand()*eps - eps/2)
-        y00 = (y0>0)*y0 + 1*(y0<0)
-        y01 = (y0<0)*y0 - 1*(y0>0)
-        y10 = (y1>0)*y1 + 1*(y1<0)
-        y11 = (y1<0)*y1 - 1*(y1>0)
-        mask = np.zeros((self.im_size, self.im_size), dtype=np.int16)
+        y0 = int(y[1]/2 - self.im_size//2 + np.random.rand()*eps - eps/2)
+        y1 = int(y[0]/2 - self.im_size//2 + np.random.rand()*eps - eps/2)
+        y00 = (y0>0)*y0 + 1*(y0<=0)
+        y01 = (y0<0)*y0 - 1*(y0>=0)
+        y10 = (y1>0)*y1 + 1*(y1<=0)
+        y11 = (y1<0)*y1 - 1*(y1>=0)
+        mask = np.zeros((self.im_size, self.im_size), dtype=np.uint16)
         mask[y00:y01,y10:y11] = random.choice(self.masks)[-y01:-y00,-y11:-y10]
         return x & mask
 

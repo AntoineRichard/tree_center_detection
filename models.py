@@ -2,7 +2,10 @@ from tensorflow.keras import Sequential, Model
 import tensorflow.keras.layers as tfkl
 import tensorflow as tf
 
-from model_utils import *
+from utils.transformer_utils import *
+from utils.resnet_utils import *
+from utils.densenet_utils import *
+from utils.multiscale_utils import *
 
 class Transformer(tf.keras.Model):
     def __init__(self, num_layers, d_model, num_heads, dff, 
@@ -37,6 +40,65 @@ class TransformerEncoder(tf.keras.Model):
         # dec_output.shape == (batch_size, tar_seq_len, d_model)
         final_output = self.final_layer(enc_output)  # (batch_size, tar_seq_len, target_vocab_size)
         return final_output
+
+class DenseNet(Model):
+    def __init__(self, growthrate = 32, layers = [6, 12, 32, 32], num_init_feature = 64, reduction = 0.5, droprate=0.0, bottleneck = False, activation = tf.nn.relu, subsample_input = True):
+        super(DenseNet, self).__init__()
+        # Builds a dense net
+        self.subsample_input = subsample_input
+        self.act = activation
+        # Compute compression rate
+        self.compression = 1.0 - reduction
+        # Growth rate and layers
+        self.growthrate = growthrate
+        self.blocks = layers
+
+        # First layers, subdivide input if requested
+        if self.subsample_input:
+            self.cv0 = tfkl.Conv2D(num_init_feature, (7,7), strides=(2,2), padding='same', use_bias=False)
+            #self.bn0 = tfkl.BatchNormalization()
+            self.mp0 = tfkl.MaxPooling2D((3,3), strides = (2,2), padding='same')
+        else:
+            self.cv0 = tfkl.Conv2D(num_init_feature, (3,3), strides=(1,1), padding='same', use_bias=False)
+        # Stacks dense blocks
+        self.dense_blocks = []
+        self.transitions = []
+        self.depth = num_init_feature
+        for layers in self.blocks[:-1]:
+            blk = DenseBlock(self.depth, self.growthrate, layers, bottleneck = bottleneck, droprate = droprate)
+            self.dense_blocks.append(blk)
+            self.depth = blk.nb_filters
+            self.transitions.append(DenseTransition(self.depth, droprate = droprate, compression = self.compression))
+            self.depth = int(self.depth*self.compression)
+        # No compression on last block
+        blk = DenseBlock(self.depth, self.growthrate, layers, bottleneck = bottleneck, droprate = droprate)
+        self.dense_blocks.append(blk)
+        self.depth = blk.nb_filters
+        self.transitions.append(DenseTransition(self.depth, droprate = droprate))
+        # Tail
+        #self.bn1 = tfkl.BatchNormalization()
+        self.gap1 = tfkl.GlobalAveragePooling2D()
+    
+    def compute_output_shape(self, input_shape):
+        return (self.depth)
+
+    def call(self, x, training):
+        # Call intial layers
+        x = self.cv0(x)
+        if self.subsample_input:
+            #x = self.bn0(x, training)
+            x = self.act(x)
+            x = self.mp0(x)
+        # Apply blocks
+        for blk, tra in zip(self.dense_blocks, self.transitions):
+            x = blk(x, training)
+            x = tra(x, training)
+        # End of encoder
+        #x = self.bn1(x, training)
+        x = self.act(x)
+        x = self.gap1(x)
+        return x
+
 
 class ResNet50(Model):
     def __init__(self, depth):
@@ -474,6 +536,16 @@ def Simple_with_decoder(height, width, output=2, depth=1024):
     model2.add(tfkl.Dense(output))
     return encoder, model2
 
+def DenseNet_with_decoder(height, width, output=2, depth=256):
+    encoder = DenseNet()
+
+    model2 = Sequential(name="dense_decoder")
+    model2.add(tfkl.Dense(128, activation='relu', input_shape=[encoder.depth]))
+    model2.add(tfkl.Dropout(rate=0.1))
+    model2.add(tfkl.Dense(128, activation='relu'))
+    model2.add(tfkl.Dense(output))
+    return encoder, model2
+
 def VGG16MS_with_decoder(height, width, output=2, depth=512):
     encoder = MS_VGG16(depth)
     model2 = Sequential(name="dense_decoder")
@@ -482,3 +554,4 @@ def VGG16MS_with_decoder(height, width, output=2, depth=512):
     model2.add(tfkl.Dense(256, activation='relu'))
     model2.add(tfkl.Dense(output))
     return encoder, model2
+

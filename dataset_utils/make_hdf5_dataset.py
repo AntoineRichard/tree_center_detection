@@ -126,10 +126,10 @@ class H5Converter:
         path_list = [paths[i:i+self.max_threads] for i in range(0,len(paths), self.max_threads)]
         for keys, paths in zip(key_list,path_list):
             processed = pool.map(self.build_hdf5_from_folder, paths)
-            for res, key_name in zip(processed, keys):
+            for (res, slice_number), key_name in zip(processed, keys):
                 grp=h5.create_group(key_name)
-                for i, image in enumerate(res):
-                    grp.create_dataset(str(i),data=image)
+                for i, image in zip(slice_number, res):
+                    grp.create_dataset(i,data=image)
         h5.close()
 
     def build_hdf5_from_folder(self, folder):
@@ -175,7 +175,8 @@ class H5Converter:
             encoded.append(cv2.imencode('.png',image,[cv2.IMWRITE_PNG_COMPRESSION, 9])[1])
         enc_stamp = datetime.now()
         print(folder+" :: Encoding Done :: "+str((enc_stamp - eq_stamp).total_seconds())+"s")
-        return encoded
+        image_slice_number = [image.split(".")[0] for image in images]
+        return [encoded, image_slice_number]
 
 if __name__ == "__main__":
     H5C = H5Converter('/home/gpu_user/antoine/WoodSeer/XRays','/home/gpu_user/antoine/WoodSeer/XRays/trees_to_use.txt', '/home/gpu_user/antoine/WoodSeer/XRays_v2.hdf5')

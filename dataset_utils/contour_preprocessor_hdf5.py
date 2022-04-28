@@ -42,12 +42,18 @@ def normalize(img):
     img = (255*(img*1.0-np.min(img))/(np.max(img)-np.min(img))).astype(np.uint8)
     return img
 
-def applyOTSU(img): 
+def applyOTSU(img):
+    k= np.zeros([5,5],dtype=np.uint8) 
+    k[2,:] = 255
+    k[:,2] = 255
+    k[1,1:4] = 255
+    k[3,1:4] = 255
+    
     blur = cv2.GaussianBlur(img.copy(),(5,5),0)
     blur = cv2.GaussianBlur(blur,(5,5),0)
     _, bin = cv2.threshold(blur,0,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     bin = cv2.dilate(cv2.erode(bin,np.ones((3,3)),iterations=1),np.ones((3,3)),iterations=1)
-    bin = cv2.dilate(cv2.erode(bin,np.ones((5,5)),iterations=2),np.ones((5,5)),iterations=2)
+    bin = cv2.dilate(cv2.erode(bin,k,iterations=2),k,iterations=2)
     return bin
 
 def getLargestBlob(img):
